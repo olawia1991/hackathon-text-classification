@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <title>AImages</title>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@16/umd/react.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/@babel/standalone@7.5.5/babel.min.js"
+    ></script>
+  </head>
+  <body
+    class="h-full w-full container mx-auto mt-32 flex justify-center text-gray-800"
+  >
+    <div id="app" class="w-full"></div>
+    <script type="text/babel">
+      const { useState } = React;
+
+      const Tags = ({ tags, handleRemoveTag }) => (
+        <div>
+          <h3 className="mb-4 text-xl">{tags.length} tags</h3>
+          <ul className="flex flex-wrap">
+            {tags.map((t, index) => (
+              <li
+                className="bg-gray-800 text-white rounded mb-4 mr-4 lex"
+                key={index}
+              >
+                <button
+                  className="group flex items-center justify-center py-2 px-4"
+                  onClick={() => {
+                    handleRemoveTag(index);
+                  }}
+                >
+                  {t}
+                  <span className="ml-4 opacity-0 group-hover:opacity-100 text-red-700">
+                    <svg
+                      className="w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+
+      const Photos = ({ photos, likePhoto, dislikePhoto }) => (
+        <div>
+          <h3 className="mb-4 text-xl">{photos.length} photos</h3>
+          <div className="grid grid-cols-4 gap-4">
+            {photos.map((photo, index) => (
+              <div
+                className="relative flex items-start justify-center"
+                key={index}
+              >
+                <img src={photo.url} className="w-full" />
+                <div className="absolute inset-0 opacity-0 hover:opacity-100 transform transition-opacity duration-500">
+                  <div className="flex justify-between p-2 text-4xl">
+                    <button onClick={() => likePhoto(photo)}>👍</button>
+                    <button onClick={() => dislikePhoto(photo)}>👎</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      const hostName = 'http://' + location.host;
+      const classificationTypes = ['Syntax', 'Entity', 'Keyphrase', 'Combine'];
+      const IMAGE_SERVICES = ['Unsplash', 'Pexels'];
+      const users = ['Bob', 'Mary', 'Joe', 'Samantha'];
+
+      const App = () => {
+        const [text, setText] = useState(
+          'Yes, especially the trips! I loved science at school, but I won’t need it much. I thought about studying history but couldn’t find a course I really liked. We’re learning about mountains and rivers in the first term, which’ll be great.'
+        );
+        const [user, setUser] = useState(users[0]);
+        const [type, setType] = useState(classificationTypes[0]);
+        const [tags, setTags] = useState();
+        const [imageServices, setImageServices] = useState(IMAGE_SERVICES);
+        const [photos, setPhotos] = useState([]);
+
+        const handleClassificationTypeChange = (e) => {
+          setType(event.target.value);
+        };
+
+        const handleImageSource = ({ value, checked }) => {
+          if (checked && !imageServices.includes(value)) {
+            setImageServices([...imageServices, value]);
+          } else {
+            setImageServices(
+              imageServices.filter((imageService) => imageService !== value)
+            );
+          }
+        };
+
+        const handleRemoveTag = (index) => {
+          const _tags = [...(tags || [])];
+          _tags.splice(index, 1);
+          setTags(_tags);
+        };
+
+        const getTags = async () => {
+          const response = await fetch(hostName + '/api/text/analyse', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text, type }),
+          });
+          const data = await response.json();
+          setTags(data);
+        };
+
+        const getPhotos = async () => {
+          const response = await fetch(
+            hostName + '/api/photos/getPhotosForTags',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ user, tags, imageServices }),
+            }
+          );
+          const data = await response.json();
+          setPhotos(data);
+        };
+
+        const likePhoto = (photo) => {
+          const isLiked = true;
+          const _photos = photos.filter((p) => p.id !== photo.id);
+          setPhotos(_photos);
+          fetch(hostName + '/api/photos/ratePhoto', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ photo, user, tags, isLiked }),
+          });
+        };
+
+        const dislikePhoto = (photo) => {
+          const isLiked = false;
+          const _photos = photos.filter((p) => p.id !== photo.id);
+          setPhotos(_photos);
+
+          fetch(hostName + '/api/photos/ratePhoto', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ photo, user, tags, isLiked }),
+          });
+        };
+
+        const handleResetDislikes = () => {
+          fetch(hostName + '/api/photos/resetPhotoDislikes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ user }),
+          });
+        };
+
+        const RightArrow = () => (
+          <svg
+            className="h-24 w-24 block"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        );
+
+        return (
+          <div className="flex flex-col w-full">
+            <div className="flex justify-between items-baseline">
+              <h1 className="text-6xl text-center mb-8">
+                <span className="font-bold">AI</span>mages
+              </h1>
+              <div className="text-xl flex justify-center items-center">
+                <svg
+                  className="w-8 mr-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+                <select
+                  onChange={(e) => {
+                    setUser(e.target.value);
+                  }}
+                  value={user}
+                  className="border px-4 py-2 rounded"
+                >
+                  {users.map((user) => (
+                    <option key={user} value={user}>
+                      {user}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-center items-center space-x-6 my-8 text-xl bg-gray-100 py-4">
+              <div className="flex flex-col space-y-4 justify-center items-center">
+                <div>
+                  <svg
+                    className="h-24 w-24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </div>
+                <div>Text</div>
+              </div>
+              <RightArrow />
+              <div className="flex flex-col space-y-4 justify-center items-center">
+                <div>
+                  <svg
+                    className="h-24 w-24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                    />
+                  </svg>
+                </div>
+                <div>AI (Comprehend)</div>
+              </div>
+              <RightArrow />
+              <div className="flex flex-col space-y-4 justify-center items-center">
+                <div>
+                  <svg
+                    className="h-24 w-24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                    />
+                  </svg>
+                </div>
+                <div>Tags</div>
+              </div>
+              <RightArrow />
+              <div className="flex flex-col space-y-4 justify-center items-center">
+                <div>
+                  <svg
+                    className="h-24 w-24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                    />
+                  </svg>
+                </div>
+                <div>Image Sources</div>
+              </div>
+              <div>
+                <svg
+                  className="h-24 w-24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </div>
+              <div className="flex flex-col space-y-4 justify-center items-center">
+                <div>
+                  <svg
+                    className="h-24 w-24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <div>Images</div>
+              </div>
+            </div>
+            <fieldset className="text-xl border mb-4 px-4 py-8">
+              <legend className="font-bold">Classification Type</legend>
+              <div className="flex space-x-8">
+                {classificationTypes.map((classificationType) => (
+                  <span key={classificationType}>
+                    <label className="ml-2">
+                      <input
+                        id={classificationType}
+                        value={classificationType}
+                        type="radio"
+                        checked={type === classificationType}
+                        onChange={handleClassificationTypeChange}
+                      />
+                      <span className="ml-2">{classificationType}</span>
+                    </label>
+                  </span>
+                ))}
+              </div>
+            </fieldset>
+
+            <textarea
+              placeholder="add text here..."
+              value={text}
+              onChange={(e) => {
+                setText(event.target.value);
+              }}
+              className="h-80 p-2 bg-transparent border-2 border-gray-800"
+            />
+
+            <button
+              className={`text-white w-full py-2 px-4 rounded font-bold ${
+                text && text.length ? 'bg-blue-500' : 'bg-blue-200 '
+              }`}
+              onClick={getTags}
+            >
+              Get Tags
+            </button>
+
+            {tags !== undefined && (
+              <div className="mt-4">
+                <Tags tags={tags} handleRemoveTag={handleRemoveTag} />
+                <fieldset className="text-xl border mb-4 px-4 mt-8 py-8">
+                  <legend className="font-bold">Image Sources</legend>
+                  <div className="flex space-x-8">
+                    {IMAGE_SERVICES.map((imageService) => (
+                      <div key={imageService}>
+                        <input
+                          value={imageService}
+                          id={imageService}
+                          type="checkbox"
+                          checked={imageServices.includes(imageService)}
+                          onChange={(e) => handleImageSource(e.target)}
+                        />
+                        <label className="ml-2 " htmlFor={imageService}>
+                          {imageService}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="mt-8">
+                  <button
+                    className={`text-white w-full py-2 px-4 rounded font-bold ${
+                      tags.length ? 'bg-blue-500' : 'bg-blue-200'
+                    }`}
+                    onClick={getPhotos}
+                  >
+                    Get Photos
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-8">
+              {tags && tags.length > 0 && photos.length > 0 && (
+                <Photos
+                  dislikePhoto={dislikePhoto}
+                  likePhoto={likePhoto}
+                  photos={photos}
+                />
+              )}
+            </div>
+          </div>
+        );
+      };
+      ReactDOM.render(<App />, document.getElementById('app'));
+    </script>
+  </body>
+</html>
